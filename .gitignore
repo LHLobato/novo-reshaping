@@ -57,3 +57,5 @@ dist/
 *.log
 
 *.csv
+*:Zone.Identifier
+
