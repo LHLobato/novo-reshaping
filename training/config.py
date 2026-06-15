@@ -1,17 +1,16 @@
 # config.py
-ROOT = "../images/CSIC-2010"
 
 
-def _dirs(name: str) -> dict:
-    return {split: f"{ROOT}/{name}/{split}" for split in ("train", "val", "test")}
+def _dirs(name: str, root: str) -> dict:
+    return {split: f"{root}/{name}/{split}" for split in ("train", "val", "test")}
 
 
 def get_datasets(root: str) -> list:
     return [
-        {"name": "GASF", "dirs": _dirs("GASF_state0")},
-        {"name": "GADF", "dirs": _dirs("GADF_state0")},
-        {"name": "RPLOT", "dirs": _dirs("RPLOT_state0")},
-        {"name": "SEQ", "dirs": _dirs("SEQ_state0")},
+        {"name": "GASF", "dirs": _dirs("GASF_state0", root)},
+        {"name": "GADF", "dirs": _dirs("GADF_state0", root)},
+        {"name": "RPLOT", "dirs": _dirs("RPLOT_state0", root)},
+        {"name": "SEQ", "dirs": _dirs("SEQ_state0", root)},
     ]
 
 

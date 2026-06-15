@@ -60,6 +60,9 @@ def build_vision_model(model_name: str, dropout: float) -> nn.Module:
         "DeiT-Tiny": lambda: timm.create_model(
             "deit_tiny_patch16_224", pretrained=True, num_classes=2
         ),
+        "DeiT-Small": lambda: timm.create_model(
+            "deit_small_patch16_224", pretrained=True, num_classes=2
+        ),
         "EfficientViT-B0": lambda: timm.create_model(
             "efficientvit_b0", pretrained=True, num_classes=2
         ),
@@ -82,6 +85,7 @@ def _unfreeze_head(model: nn.Module, model_name: str) -> None:
         "HybriDet",
         "FastViT",
         "DeiT-Tiny",
+        "DeiT-Small",
         "EfficientViT-B0",
     ):
         for p in model.head.parameters():
@@ -149,6 +153,7 @@ def get_args():
             "MiniCNN",
             "CustomCNN",
             "DeiT-Tiny",
+            "DeiT-Small",
             "EfficientViT-B0",
         ],
     )
