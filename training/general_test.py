@@ -57,6 +57,12 @@ def build_vision_model(model_name: str, dropout: float) -> nn.Module:
             use_bn=True,
         ),
         "MiniCNN": lambda: MiniCNN(num_classes=2),
+        "DeiT-Tiny": lambda: timm.create_model(
+            "deit_tiny_patch16_224", pretrained=True, num_classes=2
+        ),
+        "EfficientViT-B0": lambda: timm.create_model(
+            "efficientvit_b0", pretrained=True, num_classes=2
+        ),
     }
     if model_name not in registry:
         raise ValueError(
@@ -70,7 +76,14 @@ def _unfreeze_head(model: nn.Module, model_name: str) -> None:
     if model_name in ("ResNet50", "ResNet18"):
         for p in model.fc.parameters():
             p.requires_grad = True
-    elif model_name in ("ConvNext-Nano", "ConViT", "HybriDet", "FastViT"):
+    elif model_name in (
+        "ConvNext-Nano",
+        "ConViT",
+        "HybriDet",
+        "FastViT",
+        "DeiT-Tiny",
+        "EfficientViT-B0",
+    ):
         for p in model.head.parameters():
             p.requires_grad = True
     elif model_name in ("ViTB16", "Swin-Tiny"):
@@ -135,6 +148,8 @@ def get_args():
             "FastViT",
             "MiniCNN",
             "CustomCNN",
+            "DeiT-Tiny",
+            "EfficientViT-B0",
         ],
     )
     parser.add_argument(
@@ -142,8 +157,15 @@ def get_args():
         type=str,
         choices=["CSIC-2010", "FWAF", "Domain-Custom", "HTTP-PARAMS"],
     )
-    parser.add_argument("--batch_size", type=int, help="Batch_size")
-    parser.add_argument("--num_workers", type=int, help="workers")
+    parser.add_argument("--batch_size", type=int, help="Batch_size", default=16)
+    parser.add_argument("--num_workers", type=int, help="workers", default=4)
+    parser.add_argument(
+        "--root",
+        type=str,
+        default="../images/CSIC-2010",
+        help="Diretório raiz das imagens",
+    )
+
     return parser.parse_args()
 
 
@@ -158,7 +180,7 @@ def main(args):
 
     transform = _get_transform(model_name)
 
-    for dataset_cfg in config.DATASETS:
+    for dataset_cfg in config.get_datasets(args.root):
         ds_name = dataset_cfg["name"]
         dirs = dataset_cfg["dirs"]
 
