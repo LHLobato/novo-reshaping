@@ -190,7 +190,7 @@ def main(args):
         dirs = dataset_cfg["dirs"]
 
         train_loader, val_loader, test_loader = _make_loaders(
-            dirs, args.batch_size, args.workers, transform
+            dirs, args.batch_size, args.num_workers, transform
         )
         print(f"[{ds_name}] dados carregados.")
 
