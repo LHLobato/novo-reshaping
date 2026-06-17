@@ -2,7 +2,7 @@
 
 set -e
 
-MODELS=("ViTB16" "ConViT" "FastViT" "MaxViT-Tiny" "EfficientViT-B0" "DeiT-Tiny" "DeiT-Small" "Swin-Tiny")
+MODELS=("ViTB16" "ConViT" "FastViT" "MaxViT-Tiny" "EfficientViT-B0" "DeiT-Tiny" "Swin-Tiny")
 DATASETS=("CSIC-2010" "FWAF" "HTTP-PARAMS")
 
 DATA_ROOT="../images"
