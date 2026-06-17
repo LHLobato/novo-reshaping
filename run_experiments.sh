@@ -1,11 +1,9 @@
 #!/bin/bash
-
 set -e
 
-MODELS=("ViTB16" "ConViT" "FastViT" "MaxViT-Tiny" "EfficientViT-B0" "DeiT-Tiny" "Swin-Tiny")
+MODELS=("ViTB16" "ConViT" "FastViT" "EfficientViT-B0" "DeiT-Tiny" "Swin-Tiny")
 DATASETS=("CSIC-2010" "FWAF" "HTTP-PARAMS")
-
-DATA_ROOT="../images"
+IMAGES_ROOT="../images"
 
 echo "========================================================="
 echo " Iniciando bateria de experimentos - Modelos ViT"
@@ -21,9 +19,8 @@ for DATASET in "${DATASETS[@]}"; do
 
         python training/general_test.py \
             --model "$MODEL" \
-            --dataset "$DATASET" \
             --epochs 30 \
-            --root "$DATA_ROOT" \
+            --root "$IMAGES_ROOT/$DATASET" \
             --num_workers 8 \
             --batch_size 16
 
