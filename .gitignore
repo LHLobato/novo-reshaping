@@ -57,5 +57,7 @@ dist/
 *.log
 
 *.csv
+!results/*.csv
+!image_generation/outputs/*.csv
 *:Zone.Identifier
 
