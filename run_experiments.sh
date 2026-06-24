@@ -1,5 +1,32 @@
 #!/bin/bash
-set -e
+
+VENV_DIR=".venv"
+REQUIREMENTS="requirements.txt"
+if [ "$VIRTUAL_ENV" != "$(pwd)/$VENV_DIR" ]; then
+    echo "O ambiente '$VENV_DIR' não está ativado no momento."
+    if [ -d "$VENV_DIR" ]; then
+        echo "Diretório '$VENV_DIR' encontrado. Ativando o ambiente..."
+        source "$VENV_DIR/bin/activate"
+    else
+        echo "Ambiente '$VENV_DIR' não existe. Criando agora..."
+
+        python3 -m venv "$VENV_DIR"
+
+        echo "Ativando o ambiente recém-criado..."
+        source "$VENV_DIR/bin/activate"
+
+        pip install --upgrade pip > /dev/null 2>&1
+        if [ -f "$REQUIREMENTS" ]; then
+            echo "Arquivo $REQUIREMENTS encontrado. Instalando dependências..."
+            pip install -r "$REQUIREMENTS"
+        else
+            echo "Aviso: Nenhum arquivo '$REQUIREMENTS' encontrado na pasta. Nenhuma dependência extra foi instalada."
+        fi
+    fi
+    echo "Pronto! Ambiente ativado e configurado."
+else
+    echo "Tudo certo! O ambiente '$VENV_DIR' já está ativado e pronto para uso."
+fi
 
 MODELS=("ViTB16" "ConViT" "FastViT" "EfficientViT-B0" "DeiT-Tiny" "Swin-Tiny")
 DATASETS=("CSIC-2010" "FWAF" "HTTP-PARAMS")
