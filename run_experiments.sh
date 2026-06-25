@@ -29,14 +29,14 @@ else
 fi
 
 MODELS=("ViTB16" "ConViT" "FastViT" "EfficientViT-B0" "DeiT-Tiny" "Swin-Tiny")
-DATASETS=("CSIC-2010" "FWAF" "HTTP-PARAMS")
-IMAGES_ROOT="../images"
+HTTP_DATASETS=("CSIC-2010" "FWAF" "HTTP-PARAMS")
+IMAGES_ROOT=""
 
 echo "========================================================="
 echo " Iniciando bateria de experimentos - Modelos ViT"
 echo "========================================================="
 
-for DATASET in "${DATASETS[@]}"; do
+for DATASET in "${HTTP_DATASETS[@]}"; do
     echo "---------------------------------------------------------"
     echo " Processando Dataset: $DATASET"
     echo "---------------------------------------------------------"

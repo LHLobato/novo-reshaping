@@ -23,7 +23,7 @@ def _resnet(variant: str, dropout: float) -> nn.Module:
     return model
 
 
-def build_vision_model(model_name: str, dropout: float) -> nn.Module:
+def build_vision_model(model_name: str, dropout: float, model_path: str | None = None) -> nn.Module:
     registry = {
         "ResNet50": lambda: _resnet("resnet50", dropout),
         "ResNet18": lambda: _resnet("resnet18", dropout),
@@ -50,7 +50,7 @@ def build_vision_model(model_name: str, dropout: float) -> nn.Module:
         "CustomCNN": lambda: build_model(
             arch={
                 "name": "mid_3b_b",
-                "blocks": [(32, 3, True), (64, 3, True), (128, 3, True)],
+                "blocks": [(32, 3, True), (64, 3, True), (128, 3, True)]
             },
             fc_dims=[512],
             dropout=0.5,
@@ -71,7 +71,14 @@ def build_vision_model(model_name: str, dropout: float) -> nn.Module:
         raise ValueError(
             f"Modelo desconhecido: {model_name!r}. Opções: {list(registry)}"
         )
-    return registry[model_name]()
+    
+    model = registry[model_name]()
+    
+    if model_path:
+        state_dict = torch.load(model_path, map_location="auto")
+        model = model.load_state_dict(state_dict)
+
+    return model 
 
 
 def _unfreeze_head(model: nn.Module, model_name: str) -> None:
