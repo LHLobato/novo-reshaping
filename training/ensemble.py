@@ -11,6 +11,7 @@ from tqdm import tqdm
 from myutils import _use_amp
 import numpy as np 
 from torch.utils.data import DataLoader
+import os 
 
 def _all_estimators(base: dict) -> list[tuple[str, object]]:
     return [(name, clf()) for name, clf in base.items()]
@@ -74,30 +75,20 @@ _stacking_entries = {
 
 registry = {**BASE, **_voting_entries, **_stacking_entries}
 
-def _get_classifier(clf_name: str):
-    if clf_name not in registry:
-        raise ValueError(
-            f"Classificador desconhecido: {clf_name!r}. Opções: {list(registry)}"
-        )
-    return registry[clf_name]()
-
-class EnsembleHead():
+class FeatureExtractor():
     model_name:str 
     clf_name:str
     device:str 
     vision_model:object 
-    clf:object
     train_loader:object
     val_loader:object
     test_loader:object
     transform:object
 
-    def __init__(self, device:str, model_name:str, model_path:str, classifier_name:str, dropout=0.0):
+    def __init__(self, device:str, model_name:str, model_path:str, dropout=0.0):
         self.model_name = model_name
-        self.clf_name = classifier_name
         self.transform = _get_transform(model_name)
         self.vision_model = build_vision_model(model_name=model_name, dropout=dropout, model_path=model_path)
-        self.clf = _get_classifier(classifier_name)
         self.device = device
 
         if hasattr(self.vision_model, "fc"):                  
@@ -133,24 +124,27 @@ class EnsembleHead():
             labels.append(batch_labels)
 
         return torch.cat(feats).numpy(), torch.cat(labels).numpy()
-
-    def fit(self):
-        X, y = self._extract_features(self.val_loader)
-        self.clf.fit(X, y)
     
-    def predict(self):
-        X, y = self._extract_features(self.test_loader)
+    def extract_and_save(self, save_dir: str, dataset_name: str, type_img: str):
+        """Extrai features dos três splits e salva em disco."""
+        os.makedirs(save_dir, exist_ok=True)
+        for split, loader in [("train", self.train_loader), ("val", self.val_loader), ("test", self.test_loader)]:
+            feat_path = os.path.join(save_dir, f"{split}-{self.model_name}-{dataset_name}-{type_img}.npz")
+            if os.path.exists(feat_path):
+                print(f"[SKIP] {feat_path} já existe.")
+                continue
+            X, y = self._extract_features(loader)
+            np.savez(feat_path, X=X, y=y)
+            print(f"[SAVED] {feat_path}")
 
-        y_pred = self.clf.predict(X)
-        
-        if hasattr(self.clf, "predict_proba"):
-            y_prob = self.clf.predict_proba(X)[:, 1]
-        elif hasattr(self.clf, "decision_function"):   
-            y_prob = self.clf.decision_function(X)
-        else:
-            y_prob = None
-        
-        return y_pred, y_prob, y
+    @staticmethod
+    def load_features(save_dir: str, model_name: str, dataset_name: str, type_img: str):
+        """Carrega features salvas para val e test."""
+        def _load(split):
+            path = os.path.join(save_dir, f"{split}-{model_name}-{dataset_name}-{type_img}.npz")
+            data = np.load(path)
+            return data["X"], data["y"]
+        return _load("val"), _load("test")
 
 
-        
+            
