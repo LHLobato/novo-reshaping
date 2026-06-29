@@ -44,7 +44,7 @@ for DATASET in "${HTTP_DATASETS[@]}"; do
     for MODEL in "${MODELS[@]}"; do
         for TYPE in "${TYPE_IMGS[@]}"; do
             echo " -> Modelo: $MODEL | Dataset: $DATASET | Tipo: $TYPE"
-            python training/test_ensemble=.py \
+            python training/test_ensemble.py \
                 --results_csv "$RESULTS_CSV" \
                 --model_dir   "$MODEL_DIR" \
                 --model_name  "$MODEL" \

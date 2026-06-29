@@ -23,7 +23,7 @@ def _resnet(variant: str, dropout: float) -> nn.Module:
     return model
 
 
-def build_vision_model(model_name: str, dropout: float, model_path: str | None = None) -> nn.Module:
+def build_vision_model(model_name: str, dropout: float) -> nn.Module:
     registry = {
         "ResNet50": lambda: _resnet("resnet50", dropout),
         "ResNet18": lambda: _resnet("resnet18", dropout),
@@ -50,7 +50,7 @@ def build_vision_model(model_name: str, dropout: float, model_path: str | None =
         "CustomCNN": lambda: build_model(
             arch={
                 "name": "mid_3b_b",
-                "blocks": [(32, 3, True), (64, 3, True), (128, 3, True)]
+                "blocks": [(32, 3, True), (64, 3, True), (128, 3, True)],
             },
             fc_dims=[512],
             dropout=0.5,
@@ -71,14 +71,7 @@ def build_vision_model(model_name: str, dropout: float, model_path: str | None =
         raise ValueError(
             f"Modelo desconhecido: {model_name!r}. Opções: {list(registry)}"
         )
-    
-    model = registry[model_name]()
-    
-    if model_path:
-        state_dict = torch.load(model_path, map_location="auto")
-        model = model.load_state_dict(state_dict)
-
-    return model 
+    return registry[model_name]()
 
 
 def _unfreeze_head(model: nn.Module, model_name: str) -> None:
@@ -174,7 +167,7 @@ def get_args():
     parser.add_argument(
         "--root",
         type=str,
-        default="../images/CSIC-2010",
+        default="images/CSIC-2010",
         help="Diretório raiz das imagens",
     )
 
@@ -184,8 +177,8 @@ def get_args():
 def main(args):
     model_name = args.model
     num_epochs = args.epochs
-    save_dir = f"../saved_models/{model_name}/"
-    results_csv = f"../results/general_{model_name}.csv"
+    save_dir = f"saved_models/{model_name}/"
+    results_csv = f"results/general_{model_name}.csv"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     cudnn.benchmark = True
@@ -201,7 +194,7 @@ def main(args):
         )
         print(f"[{ds_name}] dados carregados.")
 
-        save_model_name = f"{model_name}-{ds_name}-{config.RESOLUTION}-CSIC-2010"
+        save_model_name = f"{model_name}-{ds_name}-{config.RESOLUTION}-{args.dataset}"
 
         model = build_vision_model(model_name, config.P)
 
@@ -233,7 +226,7 @@ def main(args):
         _append_csv(
             results_csv,
             {
-                "Image_Dataset": f"TEST-{ds_name}-CSIC-2010",
+                "Image_Dataset": f"TEST-{ds_name}-{args.dataset}",
                 "Model": model_name,
                 "Epochs": num_epochs,
                 "Test_Loss": loss,
