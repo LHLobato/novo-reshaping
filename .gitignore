@@ -59,6 +59,6 @@ dist/
 *.csv
 !results/*.csv
 !image_generation/outputs/*.csv
+!image_generation/dataset.csv
 !image_generation/http-requests/payload_full.csv
 *:Zone.Identifier
-
