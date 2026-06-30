@@ -1,5 +1,6 @@
 # coding=utf-8
 import argparse
+import logging
 import os
 
 import config
@@ -16,6 +17,22 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from transformers import SwinForImageClassification, ViTForImageClassification
 
+# ---------------------------------------------------------------------------
+# Logger
+# ---------------------------------------------------------------------------
+os.makedirs("logs", exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(os.path.join("logs", "general_test.log"), encoding="utf-8"),
+    ],
+)
+logger = logging.getLogger("general_test")
+
 
 def _resnet(variant: str, dropout: float) -> nn.Module:
     model = getattr(models, variant)(weights="DEFAULT")
@@ -23,7 +40,7 @@ def _resnet(variant: str, dropout: float) -> nn.Module:
     return model
 
 
-def build_vision_model(model_name: str, dropout: float) -> nn.Module:
+def build_vision_model(model_name: str, dropout: float, model_path: str = None) -> nn.Module:
     registry = {
         "ResNet50": lambda: _resnet("resnet50", dropout),
         "ResNet18": lambda: _resnet("resnet18", dropout),
@@ -68,10 +85,21 @@ def build_vision_model(model_name: str, dropout: float) -> nn.Module:
         ),
     }
     if model_name not in registry:
+        logger.error("Modelo desconhecido: '%s'. Opções: %s", model_name, list(registry))
         raise ValueError(
             f"Modelo desconhecido: {model_name!r}. Opções: {list(registry)}"
         )
-    return registry[model_name]()
+
+    logger.info("Construindo modelo '%s' (dropout=%.2f)", model_name, dropout)
+    model = registry[model_name]()
+
+    if model_path and os.path.exists(model_path):
+        logger.info("Carregando checkpoint: %s", model_path)
+        model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    elif model_path:
+        logger.warning("Checkpoint não encontrado: %s — iniciando do zero.", model_path)
+
+    return model
 
 
 def _unfreeze_head(model: nn.Module, model_name: str) -> None:
@@ -94,6 +122,8 @@ def _unfreeze_head(model: nn.Module, model_name: str) -> None:
         for p in model.classifier.parameters():
             p.requires_grad = True
 
+    logger.debug("Cabeça de classificação descongelada para '%s'.", model_name)
+
 
 def _get_transform(model_name: str) -> transforms.Compose:
     if model_name in ("MiniCNN", "CustomCNN"):
@@ -114,7 +144,11 @@ def _get_transform(model_name: str) -> transforms.Compose:
 
 def _make_loaders(dirs: dict, batch_size: int, num_workers: int, transform) -> tuple:
     def _loader(split, shuffle):
+        if not os.path.exists(dirs[split]):
+            logger.error("Diretório do split '%s' não encontrado: %s", split, dirs[split])
+            raise FileNotFoundError(f"Diretório não encontrado: {dirs[split]}")
         ds = datasets.ImageFolder(root=dirs[split], transform=transform)
+        logger.info("Split '%s': %d amostras carregadas de '%s'.", split, len(ds), dirs[split])
         return DataLoader(
             ds,
             batch_size=batch_size,
@@ -129,6 +163,7 @@ def _make_loaders(dirs: dict, batch_size: int, num_workers: int, transform) -> t
 def _append_csv(path: str, row: dict) -> None:
     df = pd.DataFrame([row])
     df.to_csv(path, mode="a", header=not os.path.exists(path), index=False)
+    logger.info("Resultado salvo em '%s'.", path)
 
 
 def get_args():
@@ -180,7 +215,14 @@ def main(args):
     save_dir = f"saved_models/{model_name}/"
     results_csv = f"results/general_{model_name}.csv"
 
+    logger.info("=" * 60)
+    logger.info("Iniciando experimento | Modelo: %s | Dataset: %s | Épocas: %d",
+                model_name, args.dataset, num_epochs)
+    logger.info("Transfer learning (backbone congelado): %s", args.tf)
+    logger.info("=" * 60)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info("Dispositivo: %s", device)
     cudnn.benchmark = True
 
     transform = _get_transform(model_name)
@@ -189,14 +231,25 @@ def main(args):
         ds_name = dataset_cfg["name"]
         dirs = dataset_cfg["dirs"]
 
-        train_loader, val_loader, test_loader = _make_loaders(
-            dirs, args.batch_size, args.num_workers, transform
-        )
-        print(f"[{ds_name}] dados carregados.")
+        logger.info("--- Processando dataset: %s ---", ds_name)
+
+        try:
+            train_loader, val_loader, test_loader = _make_loaders(
+                dirs, args.batch_size, args.num_workers, transform
+            )
+        except FileNotFoundError as e:
+            logger.error("Falha ao carregar dados para '%s': %s — pulando.", ds_name, e)
+            continue
+
+        logger.info("[%s] Dados carregados.", ds_name)
 
         save_model_name = f"{model_name}-{ds_name}-{config.RESOLUTION}-{args.dataset}"
 
-        model = build_vision_model(model_name, config.P)
+        try:
+            model = build_vision_model(model_name, config.P)
+        except Exception as e:
+            logger.exception("Falha ao construir modelo '%s': %s", model_name, e)
+            continue
 
         for p in model.parameters():
             p.requires_grad = not args.tf
@@ -204,24 +257,42 @@ def main(args):
 
         model = model.to(device)
 
-        best_acc, best_epoch = train(
-            model,
-            num_epochs,
-            train_loader,
-            val_loader,
-            output_dir=save_dir,
-            model_name=save_model_name,
-            device=device,
-        )
+        try:
+            best_acc, best_epoch = train(
+                model,
+                num_epochs,
+                train_loader,
+                val_loader,
+                output_dir=save_dir,
+                model_name=save_model_name,
+                device=device,
+            )
+        except Exception as e:
+            logger.exception("Erro durante o treinamento de '%s' em '%s': %s",
+                             model_name, ds_name, e)
+            continue
 
         ckpt_path = os.path.join(save_dir, f"{save_model_name}_{num_epochs}.pth")
+        if not os.path.exists(ckpt_path):
+            logger.error("Checkpoint não encontrado após treino: %s", ckpt_path)
+            continue
+
+        logger.info("Carregando melhor checkpoint: %s", ckpt_path)
         model.load_state_dict(torch.load(ckpt_path, map_location=device))
 
-        loss, acc, prec, rec, f1, auc = test(
-            model, test_loader, model_name, device=device
-        )
+        try:
+            loss, acc, prec, rec, f1, auc = test(
+                model, test_loader, model_name, device=device
+            )
+        except Exception as e:
+            logger.exception("Erro durante o teste de '%s' em '%s': %s",
+                             model_name, ds_name, e)
+            continue
 
-        print(f"[{ds_name}] melhor treino: {best_acc:.4f} @ época {best_epoch}")
+        logger.info("[%s] Melhor treino: acc=%.4f @ época %d", ds_name, best_acc, best_epoch)
+        logger.info("[%s] Teste — Loss: %.4f | Acc: %.4f | Prec: %.4f | "
+                    "Rec: %.4f | F1: %.4f | AUC: %.4f",
+                    ds_name, loss, acc, prec, rec, f1, auc)
 
         _append_csv(
             results_csv,
@@ -243,6 +314,8 @@ def main(args):
                 "Normalization": "Yes",
             },
         )
+
+    logger.info("Experimento finalizado.")
 
 
 if __name__ == "__main__":
