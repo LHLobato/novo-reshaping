@@ -57,6 +57,7 @@ dist/
 *.log
 
 *.csv
+!old_results/*.csv
 !results/*.csv
 !image_generation/outputs/*.csv
 !image_generation/dataset.csv
