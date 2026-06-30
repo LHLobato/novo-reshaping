@@ -20,7 +20,7 @@ from sklearn.feature_selection import SelectKBest, f_classif
 
 # --- Parte 1: Carregamento e Pré-processamento ---
 print("Iniciando o carregamento e pré-processamento...")
-domains_df = pd.read_csv("../data/acme/dataset.csv")
+domains_df = pd.read_csv("dataset.csv")
 
 domain_names = domains_df.iloc[:, 0].values
 numerical_features = domains_df.drop(columns=['name', 'malicious']).values
@@ -30,12 +30,14 @@ print(f"Carregado: {len(labels)} amostras")
 print(f"Features de texto (domínios): {domain_names.shape}")
 print(f"Features numéricas: {numerical_features.shape}")
 
-states = [0, 100, 1000]
+N_SUBSAMPLE = 100_000  # tamanho da subamostragem estratificada
+
+states = [0]
 
 image_reshapes = {
     "SEQ": Sequential(),
-    #"GASF": GramianAngularField(method="summation"),
-    #"GADF": GramianAngularField(method="difference"),
+    "GASF": GramianAngularField(method="summation"),
+    "GADF": GramianAngularField(method="difference"),
     "RPLOT": RecurrencePlot(threshold=None)
 }
 
@@ -71,14 +73,31 @@ def generate_and_save_images(dataset_name, data, labels, base_dir, transformer, 
             plt.imsave(file_path, image_to_save, cmap=colors)
             
     gc.collect()
+
 for state in states:
     print(f"\n{'='*20} INICIANDO EXECUÇÃO COM RANDOM_STATE = {state} {'='*20}")
-    
+
+    # --- Subamostragem estratificada para N_SUBSAMPLE antes do split treino/val/teste ---
+    all_indices = np.arange(len(labels))
+    sub_indices, _ = train_test_split(
+        all_indices,
+        train_size=N_SUBSAMPLE,
+        stratify=labels,
+        random_state=state,
+    )
+
+    domain_names_sub = domain_names[sub_indices]
+    numerical_features_sub = numerical_features[sub_indices]
+    labels_sub = labels[sub_indices]
+
+    print(f"Subamostragem: {len(labels_sub)} amostras "
+          f"(proporção malicious: {labels_sub.mean():.4f})")
+
     X_text_train, X_text_temp, y_train, y_temp = train_test_split(
-        domain_names, labels, test_size=0.3, random_state=state, stratify=labels
+        domain_names_sub, labels_sub, test_size=0.3, random_state=state, stratify=labels_sub
     )
     X_num_train, X_num_temp, _, _ = train_test_split(
-        numerical_features, labels, test_size=0.3, random_state=state, stratify=labels
+        numerical_features_sub, labels_sub, test_size=0.3, random_state=state, stratify=labels_sub
     )
     X_text_val, X_text_test, y_val, y_test = train_test_split(
         X_text_temp, y_temp, test_size=0.5, random_state=state, stratify=y_temp
