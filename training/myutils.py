@@ -133,7 +133,7 @@ def train(
 
             try:
                 if use_amp:
-                    with torch.amp.autocast("cuda"):
+                    with torch.amp.autocast("cuda", dtype=torch.bfloat16):
                         logits = _get_logits(model(images))
                         loss = criterion(logits, labels) / accumulation_steps
                     scaler.scale(loss).backward()
@@ -199,7 +199,7 @@ def train(
             for images, labels in val_loader:
                 images, labels = images.to(device), labels.to(device)
                 try:
-                    ctx = torch.amp.autocast("cuda") if use_amp else torch.no_grad()
+                    ctx = torch.amp.autocast("cuda", dtype=torch.bfloat16) if use_amp else torch.no_grad()
                     with ctx:
                         logits = _get_logits(model(images))
                         loss = criterion(logits, labels)
@@ -276,7 +276,7 @@ def test(model, test_loader, model_name, device="cuda"):
 
             try:
                 if use_amp:
-                    with torch.amp.autocast("cuda"):
+                    with torch.amp.autocast("cuda", dtype=torch.bfloat16):
                         logits = _get_logits(model(images))
                         loss = criterion(logits, labels)
                 else:
