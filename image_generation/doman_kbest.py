@@ -148,7 +148,7 @@ for state in states:
     # 4. Geração de Imagens
     for image_type, transformer in image_reshapes.items():
         print(f"\n> Processando tipo de imagem: {image_type}")
-        base_dir = f"../datasets/TF-IDF-KBest-img/gray/{image_type}_state{state}"
+        base_dir = f"../images/Domain-Custom/{image_type}_state{state}"
         
         # Agora o dicionário usa as variáveis corretamente subamostradas
         datasets_to_process = {
